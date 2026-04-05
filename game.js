@@ -29,6 +29,73 @@ const dzmmReady = new Promise((resolve) => {
 const DRAW_POSITIVE_BASE = `best quality, masterpiece, realistic, 2.00::3D ::, 1.20::Artist:jagercoke ::, 1.40::Artist:yinse_qi_ji ::, 1.50::Artist:nixeu ::, 0.50::Artist:ria_(baka-neearts) ::, 1.40::artist:seven_(sixplusone) ::, very aesthetic, masterpiece, no text, photorealistic, hyperrealistic, realistic skin texture, skin pores, volumetric lighting, soft shadows, detailed eyes with reflections, eyelash details, 8k, sharp focus, depth of field`;
 const DRAW_NEGATIVE_BASE = `low quality, worst quality, anime, cartoon, painting, drawing, oversaturated, deformed hands, extra fingers, mutated hands, unnatural lighting, unrealistic eyes, plastic skin, doll-like, symmetry, blurry background, poorly drawn face, text, watermark, abstract background, low resolution`;
 
+// ── 部位预设提示词（关键词 → 绘画提示词）──
+// 按优先级排列，匹配到第一个就停止
+const BODY_PART_PROMPTS = [
+    {
+        keywords: ['足', '脚', '脚趾', '脚掌', '脚背', '足弓', '脚踝', '赤足', '光脚', '舔脚', '踩'],
+        prompt: 'focus on feet, bare feet, detailed feet, beautiful toes, arched foot, sole of foot, toe details, ankle, foot close-up, smooth feet skin, delicate toes, high arched feet, foot fetish',
+        name: '足部'
+    },
+    {
+        keywords: ['胸', '乳', '奶', '胸部', '乳房', '巨乳', '贫乳', '乳头', '乳晕', '胸口'],
+        prompt: 'focus on breasts, detailed breasts, cleavage, nipples, areola, breast close-up, beautiful breasts, chest, bosom',
+        name: '胸部'
+    },
+    {
+        keywords: ['屄', '阴', '私处', '下体', '花穴', '蜜穴', '阴部', '阴唇', '阴蒂', '子宫'],
+        prompt: 'focus on lower body, detailed crotch area, spread legs, intimate area, inner thighs, exposed, nude lower body',
+        name: '私处'
+    },
+    {
+        keywords: ['臀', '屁股', '臀部', '翘臀', '蜜臀', '肥臀'],
+        prompt: 'focus on buttocks, detailed butt, round ass, from behind, back view, hip, gluteal, peach-shaped buttocks, bent over',
+        name: '臀部'
+    },
+    {
+        keywords: ['腿', '大腿', '小腿', '美腿', '长腿', '腿部', '丝袜'],
+        prompt: 'focus on legs, long legs, detailed thighs, beautiful legs, leg close-up, slender legs, smooth skin legs, inner thigh',
+        name: '腿部'
+    },
+    {
+        keywords: ['口', '嘴', '舌', '唇', '舔', '口交', '吞'],
+        prompt: 'focus on mouth, lips, tongue, open mouth, lip close-up, glossy lips, tongue out, saliva, wet lips',
+        name: '口部'
+    },
+    {
+        keywords: ['腋', '腋下', '腋窝'],
+        prompt: 'focus on armpits, arms up, armpit close-up, smooth armpits, exposed armpits, raised arms',
+        name: '腋下'
+    },
+    {
+        keywords: ['背', '后背', '脊背', '蝴蝶骨'],
+        prompt: 'focus on back, bare back, spine, shoulder blades, back view, back muscles, elegant back line',
+        name: '背部'
+    },
+    {
+        keywords: ['颈', '脖子', '锁骨'],
+        prompt: 'focus on neck, collarbone, neckline, slender neck, neck close-up, beautiful collarbone, swan neck',
+        name: '颈部'
+    }
+];
+
+/**
+ * 从文本中匹配第一个身体部位关键词，返回对应的绘画提示词
+ * @param {string} text - 要匹配的文本
+ * @returns {{prompt: string, name: string} | null}
+ */
+function matchBodyPartPrompt(text) {
+    if (!text) return null;
+    for (const part of BODY_PART_PROMPTS) {
+        for (const kw of part.keywords) {
+            if (text.includes(kw)) {
+                return { prompt: part.prompt, name: part.name };
+            }
+        }
+    }
+    return null;
+}
+
 // ── 名字池 ──
 const NAME_POOL = [
     '安娜', '伊莲娜', '娜塔莎', '奥莉维亚', '索菲亚', '维多利亚',
@@ -558,11 +625,29 @@ ${dancerList}
             };
         },
 
-        // 生成演员图片
+        // 获取最后一条消息的内容
+        getLastMessageContent() {
+            if (this.messages.length === 0) return '';
+            const last = this.messages[this.messages.length - 1];
+            // 如果是 assistant 消息，去掉 STATE 块
+            if (last.role === 'assistant') {
+                const parsed = this.parseAIResponse(last.content);
+                return parsed.ready ? parsed.dialogue : last.content;
+            }
+            return last.content;
+        },
+
+        // 生成演员图片（会根据最后一条消息匹配部位提示词）
         async generateDancerImage(dancer) {
             try {
+                // 从最后一条消息匹配部位关键词
+                const lastMsg = this.getLastMessageContent();
+                const bodyPart = matchBodyPartPrompt(lastMsg);
+                const bodyPartPrompt = bodyPart ? `, ${bodyPart.prompt}` : '';
+                if (bodyPart) console.log(`[生图] 匹配到部位关键词：${bodyPart.name}`);
+
                 const result = await window.dzmm.draw.generate({
-                    prompt: `${DRAW_POSITIVE_BASE}, ${dancer.drawPrompt}`,
+                    prompt: `${DRAW_POSITIVE_BASE}, ${dancer.drawPrompt}${bodyPartPrompt}`,
                     dimension: '2:3',
                     negativePrompt: DRAW_NEGATIVE_BASE
                 });
@@ -628,7 +713,7 @@ ${dancerList}
             );
         },
 
-        // 生图 - 场景
+        // 生图 - 场景（根据最后一条消息匹配部位提示词）
         async actGenerateSceneImage() {
             const dancer = this.getSelectedDancer();
             if (!dancer) { alert('请先选择一位演员'); return; }
@@ -638,16 +723,26 @@ ${dancerList}
             this.imageModalUrl = '';
 
             try {
+                // 默认场景池
                 const scenePrompts = [
                     `ballet performance, stage, spotlight, elegant dance pose, bare feet on stage`,
                     `ballet studio, mirror, barre, stretching pose, bare feet, wooden floor`,
                     `private room, luxurious, sitting on velvet chair, crossed legs, bare feet`,
                     `backstage, chandelier, standing pose, removing ballet shoes, bare feet visible`,
                 ];
-                const scene = scenePrompts[Math.floor(Math.random() * scenePrompts.length)];
+                let scene = scenePrompts[Math.floor(Math.random() * scenePrompts.length)];
+
+                // 从最后一条消息匹配部位关键词
+                const lastMsg = this.getLastMessageContent();
+                const bodyPart = matchBodyPartPrompt(lastMsg);
+                let bodyPartPrompt = '';
+                if (bodyPart) {
+                    bodyPartPrompt = `, ${bodyPart.prompt}`;
+                    console.log(`[生图] 匹配到部位关键词：${bodyPart.name}`);
+                }
 
                 const result = await window.dzmm.draw.generate({
-                    prompt: `${DRAW_POSITIVE_BASE}, ${dancer.drawPrompt}, ${scene}`,
+                    prompt: `${DRAW_POSITIVE_BASE}, ${dancer.drawPrompt}, ${scene}${bodyPartPrompt}`,
                     dimension: '2:3',
                     negativePrompt: DRAW_NEGATIVE_BASE
                 });
