@@ -180,8 +180,30 @@ document.addEventListener('alpine:init', () => {
             this.started = true;
             this.loading = false;
 
-            // 初始叙事
-            await this.requestAIResponse('', true);
+            // 预设开场白
+            const theaterName = this.theaterName || '无名剧院';
+            const opening = `你站在一扇锈迹斑斑的铁门前，手中攥着一把沉甸甸的钥匙。
+
+这是你刚刚买下的地下芭蕾剧院——「${theaterName}」。
+
+推开铁门，一股混合着灰尘和陈旧木头的气味扑面而来。昏暗的通道尽头，几盏残存的壁灯散发着微弱的暖光，映照出地面上褪色的红色地毯。
+
+走下台阶，眼前的景象让你既兴奋又头疼：一座可容纳百人的小剧场，舞台上的木地板翘起了好几块，天鹅绒幕布上满是霉斑，观众席的椅子东倒西歪。后台的更衣室里散落着几双破旧的芭蕾舞鞋，镜子上裂出蛛网般的纹路。
+
+但你能看出这里曾经的辉煌——穹顶上残存的鎏金花纹，舞台两侧精美的浮雕，还有那架蒙着灰布的三角钢琴。
+
+你的账户里还有 10000 美元。这座百废待兴的剧院，等待你注入新的生命。
+
+第一步，你需要招募演员。`;
+
+            this.chat_content = this.formatContent(opening);
+            this.messages.push({
+                id: Date.now(),
+                role: 'assistant',
+                content: opening
+            });
+
+            this.autoSave();
         },
 
         // ==================== 系统提示词 ====================
@@ -193,9 +215,9 @@ document.addEventListener('alpine:init', () => {
             return `你是一个成人文字冒险游戏的旁白/叙述者。游戏背景为一个地下芭蕾剧院。
 
 当前状态：
-玩家名：${this.playerName}
+玩家名：${this.playerName}（男性）
 剧院名：${this.theaterName || '无名剧院'}
-资金：${this.funds} 金币
+资金：${this.funds} 美元
 天数：第 ${this.day} 天
 当前演员：
 ${dancerList}
@@ -203,22 +225,23 @@ ${dancerList}
 【重要格式要求】
 每次回复必须按以下模板：
 
+（这里写详细的叙事内容）
+
 ###STATE
 {"funds_change":数字,"obedience_changes":{"演员名":变化值},"fame_changes":{"演员名":变化值},"new_day":true或false,"summary":"摘要"}
 ###END
 
-（这里写详细的叙事内容）
-
 规则：
-1. 前三行必须是 ###STATE、JSON、###END
+1. 最后三行必须是 ###STATE、JSON、###END
 2. JSON 必须在一行内
-3. funds_change 是金币变化量（正数增加，负数减少）
+3. funds_change 是美元变化量（正数增加，负数减少）
 4. obedience_changes 和 fame_changes 是对应演员名的属性变化
 5. new_day 表示是否推进到新的一天
-6. ###END 之后才写叙事内容
+6. 叙事内容写在前面，###STATE 写在最后
 
 【写作风格】
 - 这是一个R18成人游戏，包含胁迫、支配等内容
+- 玩家是男性剧院老板
 - 详细描写演员的外貌、身体，尤其是脚部（脚趾、足弓、脚掌、脚踝等）
 - 舞蹈训练场景要描写她们赤足或穿芭蕾舞鞋的细节
 - 接待客户时描写演员的顺从或抗拒
@@ -312,6 +335,7 @@ ${dancerList}
         },
 
         // ==================== 解析 AI 回复 ====================
+        // 格式：叙事内容...###STATE\nJSON\n###END
         parseAIResponse(content) {
             const stateStart = content.indexOf('###STATE');
             const stateEnd = content.indexOf('###END', stateStart + 8);
@@ -323,7 +347,8 @@ ${dancerList}
             const jsonRaw = content.slice(stateStart + 8, stateEnd).trim();
             try {
                 const state = JSON.parse(jsonRaw);
-                const dialogue = content.slice(stateEnd + 6).trim();
+                // 叙事内容在 ###STATE 之前
+                const dialogue = content.slice(0, stateStart).trim();
                 return { ready: true, state, dialogue };
             } catch {
                 return { ready: false };
@@ -436,7 +461,7 @@ ${dancerList}
         // 招募演员 - 打开招募弹窗
         actRecruit() {
             if (this.funds < 1000) {
-                alert('资金不足！招募需要至少1000金币。');
+                alert('资金不足！招募需要至少1000美元。');
                 return;
             }
             this.recruitInput = '';
@@ -533,7 +558,7 @@ ${dancerList}
 
                 // AI 叙事
                 await this.requestAIResponse(
-                    `你花费了1000金币招募了一位新的舞蹈演员：${dancer.name}。
+                    `你花费了1000美元招募了一位新的舞蹈演员：${dancer.name}。
 她的外貌：${dancer.appearance}。
 她的双足：${dancer.feet}。
 她的性格：${dancer.personality}。
@@ -603,7 +628,7 @@ ${dancerList}
 描述${dancer.name}如何用身体和舞蹈来取悦这位${client.name}。
 要详细描写她的身体接触细节，尤其是脚部细节——她用纤细的脚趾怎样...
 最后描述这位${client.name}对${dancer.name}的评价和额外打赏。
-名气变化：+${client.fameGain}，收入：${client.reward}金币`
+名气变化：+${client.fameGain}，收入：${client.reward}美元`
             );
         },
 
@@ -628,7 +653,7 @@ ${dancerList}
             if (!dancer) return;
 
             const price = Math.floor(500 + dancer.fame * 50 + dancer.obedience * 20);
-            if (!confirm(`确定出售 ${dancer.name} 吗？\n预估售价：${price} 金币\n（名气越高越值钱）`)) return;
+            if (!confirm(`确定出售 ${dancer.name} 吗？\n预估售价：${price} 美元\n（名气越高越值钱）`)) return;
 
             this.funds += price;
             this.dancers = this.dancers.filter(d => d.id !== dancer.id);
@@ -636,7 +661,7 @@ ${dancerList}
             this.dancerDetailOpen = false;
 
             await this.requestAIResponse(
-                `你以 ${price} 金币的价格出售了演员 ${dancer.name}。
+                `你以 ${price} 美元的价格出售了演员 ${dancer.name}。
 描写买家带走她的场景，以及她离开剧院时的最后一眼。`
             );
         },
@@ -786,7 +811,7 @@ ${dancerList}
                 if (!result?.value) return '（空）';
                 const s = result.value;
                 const date = new Date(s.timestamp).toLocaleString();
-                return `${s.playerName} · 第${s.day}天 · ${s.funds}金币 · ${s.dancers?.length || 0}人 · ${date}`;
+                return `${s.playerName} · 第${s.day}天 · ${s.funds}美元 · ${s.dancers?.length || 0}人 · ${date}`;
             } catch {
                 return '（空）';
             }

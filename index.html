@@ -40,11 +40,11 @@
                 <h3>📜 游戏玩法</h3>
                 <div class="info-content">
                     <p><strong>🏛️ 背景设定：</strong>你是一座地下芭蕾剧院的老板。你拥有一定的初始资金，需要招募舞蹈演员来经营剧院。</p>
-                    <p><strong>🩰 招募演员：</strong>花费金币招募新的芭蕾舞演员。每位演员拥有独特的外貌和属性，招募后会自动生成角色形象。</p>
+                    <p><strong>🩰 招募演员：</strong>花费美元招募新的芭蕾舞演员。每位演员拥有独特的外貌和属性，招募后会自动生成角色形象。</p>
                     <p><strong>💰 每日收入：</strong>拥有演员后，每天的演出会产生固定收入。演员的名气越高，收入越多。</p>
                     <p><strong>⛓️ 顺从度：</strong>每位演员都有顺从度。通过训练、惩罚或私下互动可以提升顺从度，让她们更加听话。</p>
                     <p><strong>👑 接待客户：</strong>安排演员接待富商、贵族、政要或赞助人。不同的客户会给予不同的报酬，并大幅提升演员的名气。</p>
-                    <p><strong>📈 名气系统：</strong>名气越高的演员越值钱。你可以选择出售高名气的演员来换取大量金币。</p>
+                    <p><strong>📈 名气系统：</strong>名气越高的演员越值钱。你可以选择出售高名气的演员来换取大量美元。</p>
                     <p><strong>🎨 AI 生图：</strong>游戏会为每位演员自动生成高质量3D风格的角色形象。</p>
                     <p><strong>⚠️ 警告：</strong>本游戏包含成人内容，仅供成年人游玩。</p>
                 </div>
@@ -113,7 +113,7 @@
                 <div class="stat-chip">
                     <span class="stat-icon">💰</span>
                     <span class="stat-val" x-text="$store.game.funds.toLocaleString()"></span>
-                    <span>金币</span>
+                    <span>美元</span>
                 </div>
                 <div class="stat-chip">
                     <span class="stat-icon">🩰</span>
@@ -202,7 +202,7 @@
                             ➕ 招募演员
                         </button>
                     </div>
-                    <div class="hint-text">招募花费 1000 金币 · 演员越多日收入越高</div>
+                    <div class="hint-text">招募花费 1000 美元 · 演员越多日收入越高</div>
                 </div>
 
                 <!-- 演员列表 -->
@@ -388,11 +388,11 @@
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">日收入</span>
-                                <span class="detail-value" x-text="(dancer.dailyIncome + Math.floor(dancer.fame * 5)) + ' 金币'"></span>
+                                <span class="detail-value" x-text="(dancer.dailyIncome + Math.floor(dancer.fame * 5)) + ' 美元'"></span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">估价</span>
-                                <span class="detail-value" x-text="$store.game.getDancerSellPrice(dancer) + ' 金币'"></span>
+                                <span class="detail-value" x-text="$store.game.getDancerSellPrice(dancer) + ' 美元'"></span>
                             </div>
 
                             <div class="detail-desc">
@@ -410,7 +410,7 @@
                                     :disabled="$store.game.disabled">🦶 足部侍奉</button>
                                 <button class="sell-btn" @click="$store.game.actSellDancer()"
                                     :disabled="$store.game.disabled">
-                                    💸 出售 (<span x-text="$store.game.getDancerSellPrice(dancer)"></span> 金币)
+                                    💸 出售 (<span x-text="$store.game.getDancerSellPrice(dancer)"></span> 美元)
                                 </button>
                             </div>
                         </div>
@@ -470,7 +470,7 @@
                     </div>
                     <div class="cost-info">
                         <span>💰 招募费用</span>
-                        <span>1000 金币</span>
+                        <span>1000 美元</span>
                     </div>
                 </div>
             </div>
