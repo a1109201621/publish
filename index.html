@@ -445,6 +445,47 @@
         </div>
     </div>
 
+    <!-- ============================================================
+         招募演员弹窗
+         ============================================================ -->
+    <div class="modal-mask" x-show="$store.game.recruitModalOpen" x-transition
+        @click.self="$store.game.closeRecruitModal()">
+        <div class="modal">
+            <div class="modal-header">
+                <span>➕ 招募新演员</span>
+                <button @click="$store.game.closeRecruitModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="recruit-form">
+                    <div class="form-group">
+                        <label>描述你想要的演员</label>
+                        <textarea x-model="$store.game.recruitInput"
+                            placeholder="例如：&#10;- 一个金发碧眼的俄罗斯少女，性格高傲但内心脆弱&#10;- 身材高挑，皮肤白皙，有一双修长美丽的脚&#10;- 18岁，黑色长发的东方美人，温顺听话&#10;- 红发妖艳的25岁女人，充满野性"
+                            rows="5"
+                            :disabled="$store.game.recruitGenerating"></textarea>
+                        <div class="hint">
+                            描述你理想中的演员形象，包括外貌、性格、年龄等。<br>
+                            AI 会根据你的描述自动生成完整的角色信息和绘画提示词。
+                        </div>
+                    </div>
+                    <div class="cost-info">
+                        <span>💰 招募费用</span>
+                        <span>1000 金币</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button @click="$store.game.closeRecruitModal()"
+                    :disabled="$store.game.recruitGenerating">取消</button>
+                <button class="primary" @click="$store.game.confirmRecruit()"
+                    :disabled="$store.game.recruitGenerating || !$store.game.recruitInput.trim()">
+                    <span x-show="!$store.game.recruitGenerating">🩰 确认招募</span>
+                    <span x-show="$store.game.recruitGenerating">AI 生成中…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>

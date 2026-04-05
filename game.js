@@ -96,6 +96,8 @@ document.addEventListener('alpine:init', () => {
         imageModalUrl: '',
         imageModalLoading: false,
         recruitModalOpen: false,
+        recruitInput: '',
+        recruitGenerating: false,
 
         // ==================== 初始化 ====================
         async init() {
@@ -379,29 +381,124 @@ ${dancerList}
             await this.requestAIResponse(`推进到第 ${this.day + 1} 天。描述今日的演出情况和剧院中发生的事情。`);
         },
 
-        // 招募演员
-        async actRecruit() {
+        // 招募演员 - 打开招募弹窗
+        actRecruit() {
             if (this.funds < 1000) {
                 alert('资金不足！招募需要至少1000金币。');
                 return;
             }
+            this.recruitInput = '';
+            this.recruitModalOpen = true;
+        },
+
+        // 关闭招募弹窗
+        closeRecruitModal() {
+            this.recruitModalOpen = false;
+            this.recruitInput = '';
+            this.recruitGenerating = false;
+        },
+
+        // 确认招募 - AI 根据用户描述生成角色
+        async confirmRecruit() {
+            if (!this.recruitInput.trim()) {
+                alert('请输入你想要的演员描述！');
+                return;
+            }
+            if (this.funds < 1000) {
+                alert('资金不足！');
+                return;
+            }
+
+            this.recruitGenerating = true;
             this.disabled = true;
 
-            // 随机生成角色
-            const dancer = this.generateRandomDancer();
-            this.funds -= 1000;
-            this.dancers.push(dancer);
+            try {
+                // 用 AI 根据用户需求生成角色
+                const genPrompt = `用户想要招募一位芭蕾舞演员，要求如下：
+"${this.recruitInput}"
 
-            // AI 叙事
-            await this.requestAIResponse(
-                `你花费了1000金币招募了一位新的舞蹈演员：${dancer.name}。
-她的外貌：${dancer.appearance}，${dancer.hair}，${dancer.eyes}，${dancer.skin}。
+请根据用户的要求，生成一个完整的角色。你必须严格按照以下 JSON 格式回复，不要加任何其他内容：
+
+###DANCER
+{
+  "name": "角色中文名（2-4个字）",
+  "age": 数字(18-28),
+  "hair": "发型描述（中文）",
+  "hair_en": "hair description in English for AI drawing",
+  "eyes": "眼睛描述（中文）",
+  "eyes_en": "eyes description in English for AI drawing",
+  "body": "身材描述（中文）",
+  "feet": "双足描述（中文，要细腻优美）",
+  "skin": "肤色描述（中文）",
+  "personality": "性格简述",
+  "obedience": 数字(20-60),
+  "draw_prompt": "English prompt for AI image generation: 1girl, solo, ballet dancer, [hair], [eyes], [outfit], [pose], ballet studio, ornate interior, bare feet, detailed feet, beautiful toes"
+}
+###END`;
+
+                let aiContent = '';
+                await window.dzmm.completions(
+                    { model: this.model, messages: [{ role: 'user', content: genPrompt }], maxTokens: 1000 },
+                    (content, done) => {
+                        aiContent = content;
+                    }
+                );
+
+                // 解析 AI 返回的角色数据
+                const dancerMatch = aiContent.match(/###DANCER\s*([\s\S]*?)\s*###END/);
+                if (!dancerMatch) {
+                    throw new Error('AI 未能正确生成角色数据，请重试');
+                }
+
+                let jsonStr = dancerMatch[1].trim();
+                jsonStr = jsonStr.replace(/,\s*}/g, '}');
+                const aiDancer = JSON.parse(jsonStr);
+
+                // 构建角色对象
+                const dancer = {
+                    id: Date.now() + Math.random(),
+                    name: aiDancer.name || '未命名',
+                    age: aiDancer.age || 20,
+                    hair: aiDancer.hair || '黑色长发',
+                    eyes: aiDancer.eyes || '深色眼睛',
+                    body: aiDancer.body || '修长身材',
+                    feet: aiDancer.feet || '纤细白皙的双足',
+                    skin: aiDancer.skin || '白皙肌肤',
+                    appearance: `${aiDancer.age || 20}岁，${aiDancer.body || '修长身材'}，${aiDancer.hair || '黑色长发'}，${aiDancer.eyes || '深色眼睛'}，${aiDancer.skin || '白皙肌肤'}`,
+                    obedience: aiDancer.obedience || 30,
+                    fame: Math.floor(Math.random() * 10),
+                    dailyIncome: 80 + Math.floor(Math.random() * 40),
+                    drawPrompt: aiDancer.draw_prompt || `1girl, solo, ballet dancer, ${aiDancer.hair_en || 'long hair'}, ${aiDancer.eyes_en || 'beautiful eyes'}, ballet outfit, leotard, elegant pose, ballet studio, ornate interior, bare feet, detailed feet, beautiful toes`,
+                    imageUrl: '',
+                    status: 'idle',
+                    personality: aiDancer.personality || ''
+                };
+
+                this.funds -= 1000;
+                this.dancers.push(dancer);
+                this.recruitModalOpen = false;
+                this.recruitInput = '';
+
+                // AI 叙事
+                await this.requestAIResponse(
+                    `你花费了1000金币招募了一位新的舞蹈演员：${dancer.name}。
+她的外貌：${dancer.appearance}。
 她的双足：${dancer.feet}。
+她的性格：${dancer.personality}。
+用户的招募要求是："${this.recruitInput || '无特殊要求'}"
 描述她第一次来到剧院的场景，重点描写她的外貌和赤足走在冰冷地板上的细节。`
-            );
+                );
 
-            // 尝试生成角色图片
-            this.generateDancerImage(dancer);
+                // 生成角色图片
+                this.generateDancerImage(dancer);
+
+            } catch (e) {
+                console.error('招募失败:', e);
+                alert('招募失败: ' + e.message);
+            } finally {
+                this.recruitGenerating = false;
+                this.disabled = false;
+            }
         },
 
         // 生成随机角色
