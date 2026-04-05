@@ -96,21 +96,6 @@ function matchBodyPartPrompt(text) {
     return null;
 }
 
-// ── 名字池 ──
-const NAME_POOL = [
-    '安娜', '伊莲娜', '娜塔莎', '奥莉维亚', '索菲亚', '维多利亚',
-    '叶卡捷琳娜', '阿丽莎', '玛利亚', '伊莎贝拉', '薇拉', '安吉丽娜',
-    '达莉亚', '斯维特兰娜', '柳德米拉', '加琳娜', '尤利娅', '塔玛拉',
-    '丽莎', '克拉拉', '伊芙琳', '罗莎', '塞西莉亚', '弗洛伦斯'
-];
-
-// ── 外貌特征池 ──
-const HAIR_POOL = ['黑色长发', '金色波浪卷发', '银白色直发', '红棕色短发', '栗色马尾', '铂金色双马尾', '深紫色及腰长发', '蜜色小卷发'];
-const EYES_POOL = ['深邃的蓝色眼睛', '明亮的琥珀色眼睛', '清冷的灰色眼睛', '温柔的棕色眼睛', '翠绿色的猫眼', '深紫色的神秘眼瞳'];
-const BODY_POOL = ['修长纤细的身材', '丰满圆润的身材', '匀称健美的身材', '娇小玲珑的身材', '高挑优雅的身材'];
-const FEET_POOL = ['纤细白皙的双足，脚趾修长而优美', '小巧精致的足部，脚背线条优雅', '白嫩的脚掌带着淡淡的粉红，足弓弧度完美', '修长的双足如白玉般润泽，趾甲泛着珍珠光泽'];
-const SKIN_POOL = ['白皙如瓷', '蜜色肌肤', '象牙白的肤色', '带有淡淡雀斑的肌肤', '通透莹润的肌肤'];
-
 // ── 客户类型 ──
 const CLIENT_TYPES = [
     { id: 'merchant', name: '富商', icon: '💰', fameGain: 5, obedienceChange: [-5, 5], reward: 500, desc: '出手阔绰的商人' },
@@ -566,63 +551,6 @@ ${dancerList}
                 this.recruitGenerating = false;
                 this.disabled = false;
             }
-        },
-
-        // 生成随机角色
-        generateRandomDancer() {
-            const usedNames = new Set(this.dancers.map(d => d.name));
-            let name = NAME_POOL[Math.floor(Math.random() * NAME_POOL.length)];
-            while (usedNames.has(name) && usedNames.size < NAME_POOL.length) {
-                name = NAME_POOL[Math.floor(Math.random() * NAME_POOL.length)];
-            }
-
-            const hair = HAIR_POOL[Math.floor(Math.random() * HAIR_POOL.length)];
-            const eyes = EYES_POOL[Math.floor(Math.random() * EYES_POOL.length)];
-            const body = BODY_POOL[Math.floor(Math.random() * BODY_POOL.length)];
-            const feet = FEET_POOL[Math.floor(Math.random() * FEET_POOL.length)];
-            const skin = SKIN_POOL[Math.floor(Math.random() * SKIN_POOL.length)];
-            const age = 18 + Math.floor(Math.random() * 10);
-
-            // 绘画提示词
-            const hairEn = {
-                '黑色长发': 'black long hair',
-                '金色波浪卷发': 'blonde wavy curly hair',
-                '银白色直发': 'silver white straight hair',
-                '红棕色短发': 'auburn short hair',
-                '栗色马尾': 'chestnut ponytail',
-                '铂金色双马尾': 'platinum blonde twintails',
-                '深紫色及腰长发': 'dark purple waist-length hair',
-                '蜜色小卷发': 'honey colored small curls'
-            };
-
-            const eyesEn = {
-                '深邃的蓝色眼睛': 'deep blue eyes',
-                '明亮的琥珀色眼睛': 'bright amber eyes',
-                '清冷的灰色眼睛': 'cool grey eyes',
-                '温柔的棕色眼睛': 'warm brown eyes',
-                '翠绿色的猫眼': 'emerald green cat eyes',
-                '深紫色的神秘眼瞳': 'mysterious dark purple eyes'
-            };
-
-            const drawPrompt = `1girl, solo, ballet dancer, ${hairEn[hair] || 'long hair'}, ${eyesEn[eyes] || 'beautiful eyes'}, ballet outfit, leotard, elegant pose, ballet studio, ornate interior, golden chandeliers, bare feet, detailed feet, beautiful toes, arched foot, smooth skin, ${age} years old`;
-
-            return {
-                id: Date.now() + Math.random(),
-                name,
-                age,
-                hair,
-                eyes,
-                body,
-                feet,
-                skin,
-                appearance: `${age}岁，${body}，${hair}，${eyes}，${skin}`,
-                obedience: 30 + Math.floor(Math.random() * 20),
-                fame: Math.floor(Math.random() * 10),
-                dailyIncome: 80 + Math.floor(Math.random() * 40),
-                drawPrompt,
-                imageUrl: '',
-                status: 'idle'
-            };
         },
 
         // 获取最后一条消息的内容
