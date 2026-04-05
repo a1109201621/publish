@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>芭蕾剧院经理</title>
+    <!-- DZMM SDK (内嵌，参照示例2) -->
+    <script>(function () {
+            'use strict';
+            function l(r) {
+                if (r == null || typeof r != 'object') return r;
+                try { return JSON.parse(JSON.stringify(r)); } catch { return r; }
+            }
+            var o = class {
+                constructor(e, s = window) {
+                    this.targetWindow = e; this.sourceWindow = s;
+                    this.listeners = new Map(); this.streamListeners = new Map();
+                    this.messageHandler = null;
+                }
+                start(e) {
+                    this.messageHandler || ((this.messageHandler = async (s) => {
+                        if (s.source !== this.targetWindow) return;
+                        let t = s.data;
+                        if (t.type === 'dzmm:response') {
+                            let n = this.listeners.get(t.id);
+                            n && (this.listeners.delete(t.id), t.error ? n(Promise.reject(new Error(t.error))) : n(t.result));
+                        } else if (t.type === 'dzmm:stream') {
+                            let n = this.streamListeners.get(t.id);
+                            n && (n(t.content, t.done), t.done && this.streamListeners.delete(t.id));
+                        } else t.type === 'dzmm:request' && e && (await e(t));
+                    }), this.sourceWindow.addEventListener('message', this.messageHandler));
+                }
+                stop() {
+                    this.messageHandler && (this.sourceWindow.removeEventListener('message', this.messageHandler), (this.messageHandler = null));
+                    this.listeners.clear(); this.streamListeners.clear();
+                }
+                send(e) { this.targetWindow.postMessage(e, '*'); }
+                request(e, s = {}) {
+                    let t = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                    return new Promise((n, i) => {
+                        this.listeners.set(t, (a) => { a instanceof Promise ? a.catch(i) : n(a); });
+                        this.send({ type: 'dzmm:request', id: t, method: e, params: l(s) });
+                    });
+                }
+                requestWithStream(e, s, t) {
+                    let n = `${Date.now()}-${Math.random().toString(36).slice(2)}`, i = `${n}-stream`;
+                    return (this.streamListeners.set(i, t), new Promise((a, c) => {
+                        this.listeners.set(n, (m) => { m instanceof Promise ? m.catch(c) : a(m); });
+                        this.send({ type: 'dzmm:request', id: n, method: e, params: l({ ...s, _streamId: i }) });
+                    }));
+                }
+                respond(e, s, t) { this.send({ type: 'dzmm:response', id: e, result: s, error: t }); }
+                streamUpdate(e, s, t) { this.send({ type: 'dzmm:stream', id: e, content: s, done: t }); }
+            };
+            var d = class {
+                constructor(e = window.parent) {
+                    this.kv = {
+                        get: (e) => this.channel.request('kv.get', { key: e }),
+                        put: (e, s) => this.channel.request('kv.put', { key: e, value: s }),
+                        delete: (e) => this.channel.request('kv.delete', { key: e }),
+                    };
+                    this.draw = {
+                        generate: (e) => this.channel.request('draw.generate', e),
+                        edit: (e) => this.channel.request('draw.edit', e),
+                        download: (e) => this.channel.request('draw.download', { id: e }),
+                        nav: (e) => this.channel.request('draw.nav', { id: e }),
+                    };
+                    this.chat = {
+                        list: (e) => this.channel.request('chat.list', { ids: e }),
+                        insert: (e, s) => this.channel.request('chat.insert', { parentId: e, messages: s }),
+                        timeline: (e) => this.channel.request('chat.timeline', { hasId: e }),
+                    };
+                    this.models = {
+                        list: () => this.channel.request('models.list', {}),
+                    };
+                    this.user = {
+                        info: () => this.channel.request('user.info', {}),
+                    };
+                    if (typeof window > 'u') throw new Error('GamefyBrowserSDK requires a browser environment');
+                    (this.channel = new o(e, window)), this.channel.start(),
+                        e !== window && (e.postMessage('iframe:content-ready', '*'),
+                            window.addEventListener('message', (s) => {
+                                s.data?.type === 'dzmm:parent-ready' && e.postMessage('iframe:content-ready', '*');
+                            }));
+                }
+                async completions(e, s) {
+                    let t = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                    await this.channel.requestWithStream('completions', { ...e, _streamId: t }, (n, i) => s?.(n, i, t));
+                }
+            };
+            if (typeof window < 'u')
+                try { let r = new d(); window.dzmm = r; } catch (r) { console.error('[Gamefy SDK] Init failed:', r); }
+        })();
+    </script>
+
+    <!-- 字体 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body x-data="">
+
+    <!-- ============ 加载界面 ============ -->
+    <div class="loading-screen" x-show="$store.game.loading" x-transition style="display:none">
+        <div class="loading-card">
+            <div class="loading-icon">🩰</div>
+            <div class="loading-title">Ballet Theater</div>
+            <div class="loading-sub">剧院正在准备中...</div>
+            <div class="loading-spinner"></div>
+            <button class="skip-btn" @click="$store.game.skipLoading()">跳过加载</button>
+        </div>
+    </div>
+
+    <!-- ============ 主菜单 ============ -->
+    <div class="main-menu" x-show="!$store.game.started && !$store.game.loading" x-transition>
+        <div class="menu-card">
+            <div class="menu-header">
+                <h1>🩰 芭蕾剧院经理</h1>
+                <p class="subtitle">Ballet Theater Manager</p>
+            </div>
+
+            <!-- 游戏玩法说明 -->
+            <div class="gameplay-info">
+                <h3>📜 游戏玩法</h3>
+                <div class="info-content">
+                    <p><strong>🏛️ 经营剧院：</strong>你是一座芭蕾剧院的老板，拥有初始资金。招募舞蹈演员，安排每日演出获得固定收入。</p>
+                    <p><strong>👯 演员管理：</strong>每位演员有顺从度、名气、体力等属性。你可以通过私下"调教"提高顺从度，安排VIP接待提升名气。</p>
+                    <p><strong>💎 VIP接待：</strong>安排演员接待富商、政要、赞助人等贵宾。不同客户提供不同的报酬和名气加成。</p>
+                    <p><strong>💰 交易系统：</strong>名气和顺从度越高的演员越值钱。当你觉得时机成熟，可以把她们卖给出价最高的买家。</p>
+                    <p><strong>🎨 AI生图：</strong>招募新角色时会自动生成角色画像，使用 3D 写实风格。</p>
+                </div>
+            </div>
+
+            <!-- 设置 -->
+            <div class="settings-section">
+                <h3>⚙️ 游戏设置</h3>
+
+                <div class="form-group">
+                    <label>剧院名称</label>
+                    <input type="text" x-model="$store.game.theaterName" placeholder="星辰芭蕾剧院">
+                </div>
+
+                <div class="form-group">
+                    <label>你的名字</label>
+                    <input type="text" x-model="$store.game.playerName" placeholder="输入你的名字">
+                </div>
+
+                <div class="form-group">
+                    <label>AI模型</label>
+                    <select x-model="$store.game.model">
+                        <option value="nalang-turbo-0826">nalang-turbo-0826（快速）</option>
+                        <option value="nalang-medium-0826">nalang-medium-0826（平衡）</option>
+                        <option value="nalang-max-0826">nalang-max-0826（高质量）</option>
+                        <option value="nalang-xl-0826">nalang-xl-0826（推荐）</option>
+                        <option value="nalang-max-0826-16k">nalang-max-0826-16k</option>
+                        <option value="nalang-xl-0826-16k">nalang-xl-0826-16k</option>
+                    </select>
+                    <div class="form-hint">推荐 xl 以上的模型以获得最佳叙事质量</div>
+                </div>
+            </div>
+
+            <!-- 按钮 -->
+            <div class="menu-buttons">
+                <button class="primary-btn" @click="$store.game.startGame()"
+                    :disabled="!$store.game.playerName">
+                    🎭 开始经营
+                </button>
+                <button class="secondary-btn" @click="$store.game.openSaveManager()">
+                    💾 读取存档
+                </button>
+            </div>
+
+            <div style="text-align:center;margin-top:12px" x-show="!$store.game.playerName">
+                <span class="tiny muted">⚠️ 请输入你的名字</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ 游戏主界面 ============ -->
+    <div class="game-screen" x-show="$store.game.started && !$store.game.loading" x-transition style="display:none">
+
+        <!-- 顶部状态栏 -->
+        <div class="game-topbar">
+            <div class="topbar-left">
+                <span class="game-title">🩰 <span x-text="$store.game.theaterName || '星辰芭蕾剧院'"></span></span>
+                <div class="topbar-stats">
+                    <div class="stat-chip money">
+                        <span class="label">💰</span>
+                        <span class="value" x-text="$store.game.money.toLocaleString()">50000</span>
+                    </div>
+                    <div class="stat-chip day">
+                        <span class="label">📅</span>
+                        <span class="value" x-text="'第' + $store.game.day + '天'">第1天</span>
+                    </div>
+                    <div class="stat-chip fame">
+                        <span class="label">⭐</span>
+                        <span class="value" x-text="$store.game.theaterFame">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <button class="icon-btn" @click="$store.game.openSaveManager()" title="存档管理">💾</button>
+                <button class="icon-btn" @click="$store.game.backToMenu()" title="返回主菜单">🏠</button>
+            </div>
+        </div>
+
+        <!-- 主体 -->
+        <div class="game-main">
+
+            <!-- 左：叙事面板 -->
+            <div class="narrative-panel">
+                <div class="panel-header">
+                    <span>📜 剧院纪事</span>
+                    <span class="tiny muted" x-text="'预计日收入: ' + $store.game.getDailyIncome().toLocaleString() + '金币'"></span>
+                </div>
+
+                <div class="messages-area">
+                    <template x-for="(msg, index) in $store.game.messages" :key="msg.id">
+                        <div class="message" :class="msg.role">
+                            <div class="msg-header">
+                                <span class="msg-role"
+                                    x-text="msg.role === 'user' ? $store.game.playerName || '老板' : '旁白'"></span>
+                                <div class="msg-actions">
+                                    <button class="msg-action-btn" @click="$store.game.editMessage(index)"
+                                        title="编辑">✏️</button>
+                                    <button class="msg-action-btn" @click="$store.game.deleteMessage(index)"
+                                        title="删除">🗑️</button>
+                                    <button class="msg-action-btn"
+                                        x-show="index === $store.game.messages.length - 1 && msg.role === 'assistant'"
+                                        @click="$store.game.regenerateMessage()" title="重新生成">🔄</button>
+                                </div>
+                            </div>
+                            <div class="msg-content" x-text="msg.content"></div>
+                        </div>
+                    </template>
+
+                    <!-- 生成中提示 -->
+                    <div class="generating-hint" x-show="$store.game.generating" style="display:none">
+                        <div class="mini-spinner"></div>
+                        <span>AI 正在撰写...</span>
+                    </div>
+
+                    <!-- 空状态 -->
+                    <div class="empty-msg" x-show="$store.game.messages.length === 0 && !$store.game.generating">
+                        开始你的剧院经营之旅吧...
+                    </div>
+                </div>
+
+                <!-- 自由输入 -->
+                <div class="chat-input-area">
+                    <textarea x-model="$store.game.inputText" placeholder="描述你想做的事情...（Enter 发送）"
+                        :disabled="$store.game.generating"
+                        @keydown.ctrl.enter="$store.game.sendMessage()" rows="2"></textarea>
+                    <button class="send-btn" @click="$store.game.sendMessage()"
+                        :disabled="$store.game.generating || !$store.game.inputText.trim()">
+                        发送
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右：操作面板 -->
+            <div class="control-panel">
+                <!-- 行动区 -->
+                <div class="ctrl-section">
+                    <div class="ctrl-title">🎬 行动</div>
+                    <div class="action-grid">
+                        <button class="act-btn gold" @click="$store.game.dailyPerformance()"
+                            :disabled="$store.game.disabled || $store.game.dancers.length === 0">
+                            🎭 每日演出
+                        </button>
+                        <button class="act-btn" @click="$store.game.recruitDancer()"
+                            :disabled="$store.game.disabled || $store.game.money < 3000">
+                            👤 招募演员<br><span class="tiny muted">-3000💰</span>
+                        </button>
+                    </div>
+
+                    <!-- 招募提示词输入 -->
+                    <div class="recruit-input-row">
+                        <input x-model="$store.game.recruitPrompt"
+                            placeholder="可选：描述你想要的演员（留空则随机）"
+                            :disabled="$store.game.disabled">
+                    </div>
+                </div>
+
+                <!-- 演员列表 -->
+                <div class="ctrl-section">
+                    <div class="ctrl-title">👯 旗下演员 (<span x-text="$store.game.dancers.length">0</span>)</div>
+
+                    <div class="dancer-list" x-show="$store.game.dancers.length > 0">
+                        <template x-for="d in $store.game.dancers" :key="d.id">
+                            <div class="dancer-card-mini" @click="$store.game.viewDancer(d.id)">
+                                <!-- 头像 -->
+                                <template x-if="d.imageUrl">
+                                    <img class="dancer-avatar" :src="d.imageUrl" :alt="d.name">
+                                </template>
+                                <template x-if="!d.imageUrl">
+                                    <div class="dancer-avatar-placeholder">🩰</div>
+                                </template>
+
+                                <div class="dancer-info">
+                                    <div class="dancer-name" x-text="d.name"></div>
+                                    <div class="dancer-stats-mini">
+                                        <span>🔗 <span x-text="d.obedience"></span></span>
+                                        <span>⭐ <span x-text="d.fame"></span></span>
+                                        <span>⚡ <span x-text="d.stamina"></span></span>
+                                    </div>
+                                    <div class="bar">
+                                        <div class="fill gold" :style="'width:' + d.obedience + '%'"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="tiny muted" style="margin-top:8px" x-show="$store.game.dancers.length === 0">
+                        还没有演员，快去招募吧！
+                    </div>
+                </div>
+
+                <!-- 提示 -->
+                <div class="ctrl-section">
+                    <div class="tiny muted">
+                        💡 点击演员卡片查看详情并进行操作<br>
+                        💡 顺从度和名气越高的演员卖出价格越高<br>
+                        💡 体力不足20的演员无法参加演出
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ 演员详情弹窗 ============ -->
+    <div class="modal-mask" x-show="$store.game.dancerDetailOpen" x-transition style="display:none"
+        @click.self="$store.game.dancerDetailOpen = false">
+        <div class="modal" style="max-width:700px">
+            <div class="modal-head">
+                <div class="modal-title" x-text="$store.game.selectedDancer?.name || '演员详情'"></div>
+                <button class="modal-close" @click="$store.game.dancerDetailOpen = false">关闭</button>
+            </div>
+            <div class="modal-scroll">
+                <template x-if="$store.game.selectedDancer">
+                    <div class="dancer-detail">
+                        <!-- 角色画像 -->
+                        <div class="dancer-portrait">
+                            <template x-if="$store.game.selectedDancer.imageUrl">
+                                <img :src="$store.game.selectedDancer.imageUrl"
+                                    :alt="$store.game.selectedDancer.name">
+                            </template>
+                            <template x-if="!$store.game.selectedDancer.imageUrl">
+                                <div
+                                    style="width:100%;aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;background:var(--bg-glass);border-radius:var(--radius);border:1px solid var(--border);font-size:48px">
+                                    🩰
+                                </div>
+                            </template>
+                            <button class="smallbtn" style="width:100%;margin-top:8px"
+                                @click="$store.game.regenImage($store.game.selectedDancer.id)"
+                                :disabled="$store.game.disabled">
+                                🎨 重新生成画像
+                            </button>
+                        </div>
+
+                        <!-- 角色信息 -->
+                        <div class="dancer-profile">
+                            <h2 x-text="$store.game.selectedDancer.name"></h2>
+
+                            <div class="profile-row">
+                                <span class="pk">年龄</span>
+                                <span class="pv" x-text="$store.game.selectedDancer.age + '岁'"></span>
+                            </div>
+                            <div class="profile-row">
+                                <span class="pk">特长</span>
+                                <span class="pv" x-text="$store.game.selectedDancer.specialty"></span>
+                            </div>
+                            <div class="profile-row">
+                                <span class="pk">外貌</span>
+                                <span class="pv" x-text="$store.game.selectedDancer.appearance"
+                                    style="font-size:12px;max-width:200px"></span>
+                            </div>
+                            <div class="profile-row">
+                                <span class="pk">脚部</span>
+                                <span class="pv" x-text="$store.game.selectedDancer.footDesc"
+                                    style="font-size:12px;max-width:200px"></span>
+                            </div>
+
+                            <!-- 属性条 -->
+                            <div class="profile-bar-wrap">
+                                <div class="profile-bar-label">
+                                    <span class="pk">🔗 顺从度</span>
+                                    <span class="pv" x-text="$store.game.selectedDancer.obedience + '/100'"></span>
+                                </div>
+                                <div class="bar"><div class="fill rose"
+                                        :style="'width:' + $store.game.selectedDancer.obedience + '%'"></div></div>
+                            </div>
+
+                            <div class="profile-bar-wrap">
+                                <div class="profile-bar-label">
+                                    <span class="pk">⭐ 名气</span>
+                                    <span class="pv" x-text="$store.game.selectedDancer.fame + '/100'"></span>
+                                </div>
+                                <div class="bar"><div class="fill gold"
+                                        :style="'width:' + $store.game.selectedDancer.fame + '%'"></div></div>
+                            </div>
+
+                            <div class="profile-bar-wrap">
+                                <div class="profile-bar-label">
+                                    <span class="pk">⚡ 体力</span>
+                                    <span class="pv" x-text="$store.game.selectedDancer.stamina + '/100'"></span>
+                                </div>
+                                <div class="bar"><div class="fill purple"
+                                        :style="'width:' + $store.game.selectedDancer.stamina + '%'"></div></div>
+                            </div>
+
+                            <div class="profile-row" style="border-bottom:none">
+                                <span class="pk">💰 估值</span>
+                                <span class="pv"
+                                    x-text="$store.game.getDancerValue($store.game.selectedDancer).toLocaleString() + '金币'"></span>
+                            </div>
+
+                            <!-- 操作按钮 -->
+                            <div class="dancer-actions">
+                                <button class="act-btn rose"
+                                    @click="$store.game.trainDancer($store.game.selectedDancer.id)"
+                                    :disabled="$store.game.disabled">
+                                    🔒 调教
+                                </button>
+                                <button class="act-btn gold"
+                                    @click="$store.game.vipService($store.game.selectedDancer.id)"
+                                    :disabled="$store.game.disabled">
+                                    💎 VIP接待
+                                </button>
+                                <button class="act-btn danger"
+                                    @click="$store.game.sellDancer($store.game.selectedDancer.id)"
+                                    :disabled="$store.game.disabled">
+                                    💸 卖出
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ 存档弹窗 ============ -->
+    <div class="modal-mask" x-show="$store.game.saveManagerOpen" x-transition style="display:none"
+        @click.self="$store.game.saveManagerOpen = false">
+        <div class="modal">
+            <div class="modal-head">
+                <div class="modal-title">💾 存档管理</div>
+                <button class="modal-close" @click="$store.game.saveManagerOpen = false">关闭</button>
+            </div>
+            <div class="save-body">
+                <template x-for="slot in [1, 2, 3]" :key="slot">
+                    <div class="save-slot">
+                        <div class="save-left">
+                            <div class="save-name">存档位 <span x-text="slot"></span></div>
+                            <div class="save-meta" x-text="$store.game.saveSummaryText(slot)"></div>
+                        </div>
+                        <div class="save-right">
+                            <button @click="$store.game.manualSave(slot)"
+                                :disabled="!$store.game.started || $store.game.disabled">保存</button>
+                            <button @click="$store.game.manualLoad(slot)"
+                                :disabled="!$store.game.hasSave(slot) || $store.game.disabled">读取</button>
+                            <button class="danger-btn" @click="$store.game.deleteSlot(slot)"
+                                :disabled="!$store.game.hasSave(slot) || $store.game.disabled">删除</button>
+                        </div>
+                    </div>
+                </template>
+                <div class="save-note">
+                    💡 存档包含游戏状态和最近对话记录
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ 编辑消息弹窗 ============ -->
+    <div class="modal-mask" x-show="$store.game.editModalOpen" x-transition style="display:none"
+        @click.self="$store.game.editModalOpen = false">
+        <div class="modal">
+            <div class="modal-head">
+                <div class="modal-title">✏️ 编辑消息</div>
+                <button class="modal-close" @click="$store.game.editModalOpen = false">关闭</button>
+            </div>
+            <div class="modal-scroll">
+                <textarea class="edit-textarea" x-model="$store.game.editingContent" rows="12"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" @click="$store.game.editModalOpen = false">取消</button>
+                <button class="confirm-btn" @click="$store.game.confirmEdit()">确认修改</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+</body>
+
+</html>
