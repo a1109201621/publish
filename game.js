@@ -212,6 +212,8 @@ document.addEventListener('alpine:init', () => {
                 `[${d.name}] 顺从度:${d.obedience}/100 名气:${d.fame}/100 外貌:${d.appearance} 足部:${d.feet}`
             ).join('\n') || '暂无演员';
 
+            const dancerNames = this.dancers.map(d => d.name);
+
             return `你是一个成人文字冒险游戏的旁白/叙述者。游戏背景为一个地下芭蕾剧院。
 
 当前状态：
@@ -222,31 +224,41 @@ document.addEventListener('alpine:init', () => {
 当前演员：
 ${dancerList}
 
-【重要格式要求】
-每次回复必须按以下模板：
+【重要格式要求 - 必须严格遵守】
+每次回复的最后必须包含STATE块，格式如下：
 
-（这里写详细的叙事内容）
+（叙事内容 200~400字）
 
 ###STATE
-{"funds_change":数字,"obedience_changes":{"演员名":变化值},"fame_changes":{"演员名":变化值},"new_day":true或false,"summary":"摘要"}
+{"funds_change":0,"obedience_changes":{},"fame_changes":{},"new_day":false,"summary":"一句话摘要"}
 ###END
 
-规则：
-1. 最后三行必须是 ###STATE、JSON、###END
-2. JSON 必须在一行内
-3. funds_change 是美元变化量（正数增加，负数减少）
-4. obedience_changes 和 fame_changes 是对应演员名的属性变化
-5. new_day 表示是否推进到新的一天
-6. 叙事内容写在前面，###STATE 写在最后
+**严格规则：**
+1. ###STATE 必须顶格写在单独一行
+2. JSON 必须写在一行内，不能换行，不能用代码块包裹
+3. JSON 中所有变化值必须是整数数字，不能是字符串
+4. **演员名必须与上方列表完全一致：${dancerNames.length > 0 ? dancerNames.join('、') : '暂无'}**
+5. funds_change 是美元变化量，没有变化则为0
+6. obedience_changes/fame_changes 的key必须用演员原名
+7. new_day 只能是 true 或 false
+8. 没有演员相关变化时用空对象 {}
+
+【游戏机制】
+- 顺从度<30的演员被强制接客或私下玩弄时，顺从度应该降低（-5到-15）
+- 顺从度<20的演员会强烈抵抗，顺从度大幅下降
+- 顺从度降到0的演员会逃跑
+- 训练缓慢提升顺从度（+2到+5）
+- 惩罚对高顺从度有效（+3到+8），对低顺从度适得其反（-3到-8）
 
 【写作风格】
-- 这是一个R18成人游戏，包含胁迫、支配等内容
+- R18成人游戏，包含胁迫、支配内容
 - 玩家是男性剧院老板
-- 详细描写演员的外貌、身体，尤其是脚部（脚趾、足弓、脚掌、脚踝等）
-- 舞蹈训练场景要描写她们赤足或穿芭蕾舞鞋的细节
-- 接待客户时描写演员的顺从或抗拒
-- 营造权力掌控的氛围
-- 文字优美但带有色情暗示或直白的色情描写
+- 详细描写外貌、身体，尤其脚部（脚趾、足弓、脚掌、脚踝）
+- 舞蹈训练描写赤足或芭蕾舞鞋细节
+- 接待客户描写顺从或抗拒
+- 顺从度低的演员表现抗拒、恐惧
+- 顺从度高的演员表现顺从、讨好
+- 营造权力掌控氛围
 - 每次叙事 200~400 字`;
         },
 
@@ -256,6 +268,7 @@ ${dancerList}
             this.generating = true;
             this.generatingContent = '';
             let content = '';
+            let stateApplied = false;
 
             try {
                 // 构建 messages
@@ -282,7 +295,10 @@ ${dancerList}
                         const parsed = this.parseAIResponse(content);
 
                         if (parsed.ready) {
-                            this.updateGameState(parsed.state);
+                            if (!stateApplied) {
+                                stateApplied = true;
+                                this.updateGameState(parsed.state);
+                            }
                             this.chat_content = this.formatContent(parsed.dialogue);
                         } else {
                             this.generatingContent = content;
@@ -337,52 +353,118 @@ ${dancerList}
         // ==================== 解析 AI 回复 ====================
         // 格式：叙事内容...###STATE\nJSON\n###END
         parseAIResponse(content) {
-            const stateStart = content.indexOf('###STATE');
-            const stateEnd = content.indexOf('###END', stateStart + 8);
+            // 支持多种格式：###STATE / ### STATE / ###state
+            const stateRegex = /###\s*STATE/i;
+            const endRegex = /###\s*END/i;
+            const stateMatch = stateRegex.exec(content);
+            if (!stateMatch) return { ready: false };
 
-            if (stateStart === -1 || stateEnd === -1) {
-                return { ready: false };
-            }
+            const stateStart = stateMatch.index;
+            const afterState = content.slice(stateStart + stateMatch[0].length);
+            const endMatch = endRegex.exec(afterState);
+            if (!endMatch) return { ready: false };
 
-            const jsonRaw = content.slice(stateStart + 8, stateEnd).trim();
+            let jsonRaw = afterState.slice(0, endMatch.index).trim();
+            // 去除可能的 markdown 代码块标记
+            jsonRaw = jsonRaw.replace(/^```(?:json)?\s*/gm, '').replace(/\s*```\s*$/gm, '').trim();
+
+            const dialogue = content.slice(0, stateStart).trim();
+
+            // 尝试直接解析
             try {
                 const state = JSON.parse(jsonRaw);
-                // 叙事内容在 ###STATE 之前
-                const dialogue = content.slice(0, stateStart).trim();
                 return { ready: true, state, dialogue };
-            } catch {
+            } catch (e1) {
+                // 尝试提取 JSON 对象
+                const jsonMatch = jsonRaw.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        // 修复常见问题：尾逗号
+                        const fixed = jsonMatch[0].replace(/,\s*([}\]])/g, '$1');
+                        const state = JSON.parse(fixed);
+                        return { ready: true, state, dialogue };
+                    } catch (e2) {
+                        console.warn('[解析] JSON提取失败:', e2.message, 'Raw:', jsonRaw);
+                    }
+                }
                 return { ready: false };
             }
         },
 
         // ==================== 更新游戏状态 ====================
+        // 按名字查找演员（支持模糊匹配）
+        findDancerByName(name) {
+            if (!name) return null;
+            // 精确匹配
+            let d = this.dancers.find(x => x.name === name);
+            if (d) return d;
+            // 模糊：名字互相包含
+            d = this.dancers.find(x => name.includes(x.name));
+            if (d) return d;
+            d = this.dancers.find(x => x.name.includes(name));
+            if (d) return d;
+            console.warn(`[状态更新] 未找到演员: "${name}"，当前:`, this.dancers.map(x => x.name));
+            return null;
+        },
+
         updateGameState(state) {
-            if (typeof state.funds_change === 'number') {
-                this.funds = Math.max(0, this.funds + state.funds_change);
+            if (!state || typeof state !== 'object') return;
+
+            // 资金变化
+            const fundsChange = Number(state.funds_change);
+            if (!isNaN(fundsChange) && fundsChange !== 0) {
+                this.funds = Math.max(0, this.funds + fundsChange);
+                console.log(`[状态更新] 资金变化: ${fundsChange >= 0 ? '+' : ''}${fundsChange} → ${this.funds}`);
             }
 
-            if (state.obedience_changes) {
-                for (const [name, delta] of Object.entries(state.obedience_changes)) {
-                    const d = this.dancers.find(x => x.name === name);
-                    if (d) d.obedience = Math.max(0, Math.min(100, d.obedience + delta));
+            // 顺从度变化
+            if (state.obedience_changes && typeof state.obedience_changes === 'object') {
+                for (const [name, rawDelta] of Object.entries(state.obedience_changes)) {
+                    const delta = Number(rawDelta);
+                    if (isNaN(delta)) { console.warn(`[状态更新] 顺从度值无效: ${name}=${rawDelta}`); continue; }
+                    const d = this.findDancerByName(name);
+                    if (d) {
+                        const oldVal = isNaN(Number(d.obedience)) ? 50 : Number(d.obedience);
+                        d.obedience = Math.max(0, Math.min(100, oldVal + delta));
+                        console.log(`[状态更新] ${d.name} 顺从度: ${oldVal} → ${d.obedience}`);
+                    }
                 }
             }
 
-            if (state.fame_changes) {
-                for (const [name, delta] of Object.entries(state.fame_changes)) {
-                    const d = this.dancers.find(x => x.name === name);
-                    if (d) d.fame = Math.max(0, Math.min(100, d.fame + delta));
+            // 名气变化
+            if (state.fame_changes && typeof state.fame_changes === 'object') {
+                for (const [name, rawDelta] of Object.entries(state.fame_changes)) {
+                    const delta = Number(rawDelta);
+                    if (isNaN(delta)) { console.warn(`[状态更新] 名气值无效: ${name}=${rawDelta}`); continue; }
+                    const d = this.findDancerByName(name);
+                    if (d) {
+                        const oldVal = isNaN(Number(d.fame)) ? 0 : Number(d.fame);
+                        d.fame = Math.max(0, Math.min(100, oldVal + delta));
+                        console.log(`[状态更新] ${d.name} 名气: ${oldVal} → ${d.fame}`);
+                    }
                 }
             }
 
-            if (state.new_day) {
+            // 推进天数（仅AI触发时，一般由actNextDay手动处理）
+            if (state.new_day === true) {
                 this.day++;
-                // 每日演出收入
                 let dailyIncome = 0;
                 this.dancers.forEach(d => {
-                    dailyIncome += d.dailyIncome + Math.floor(d.fame * 5);
+                    dailyIncome += (Number(d.dailyIncome) || 0) + Math.floor((Number(d.fame) || 0) * 5);
                 });
                 this.funds += dailyIncome;
+                console.log(`[状态更新] 推进到第${this.day}天，日收入: ${dailyIncome}`);
+            }
+
+            // 逃跑检查：顺从度为0的演员逃跑
+            const escaped = this.dancers.filter(d => Number(d.obedience) <= 0);
+            if (escaped.length > 0) {
+                escaped.forEach(d => {
+                    console.log(`[状态更新] ${d.name} 顺从度为0，逃跑了！`);
+                });
+                this.dancers = this.dancers.filter(d => Number(d.obedience) > 0);
+                const names = escaped.map(d => d.name).join('、');
+                setTimeout(() => alert(`${names} 的顺从度降到了0，她逃跑了！`), 100);
             }
         },
 
@@ -453,9 +535,21 @@ ${dancerList}
         },
 
         // ==================== 行动系统 ====================
-        // 推进一天
+        // 推进一天（手动处理天数和收入，不依赖AI）
         async actNextDay() {
-            await this.requestAIResponse(`推进到第 ${this.day + 1} 天。描述今日的演出情况和剧院中发生的事情。`);
+            this.day++;
+            let dailyIncome = 0;
+            this.dancers.forEach(d => {
+                dailyIncome += (Number(d.dailyIncome) || 0) + Math.floor((Number(d.fame) || 0) * 5);
+            });
+            this.funds += dailyIncome;
+            this.autoSave();
+
+            await this.requestAIResponse(
+                `现在是第 ${this.day} 天。今日演出收入 ${dailyIncome} 美元已自动结算。` +
+                `描述今日的演出情况和剧院中发生的事情。` +
+                `注意：天数和收入已由系统处理，STATE中 new_day 设为 false、funds_change 设为 0。`
+            );
         },
 
         // 招募演员 - 打开招募弹窗
@@ -508,7 +602,7 @@ ${dancerList}
   "feet": "双足描述（中文，要细腻优美）",
   "skin": "肤色描述（中文）",
   "personality": "性格简述",
-  "obedience": 数字(20-60),
+  "obedience": 数字(10-35),
   "draw_prompt": "English prompt for AI image generation: 1girl, solo, ballet dancer, [hair], [eyes], [outfit], [pose], ballet studio, ornate interior, bare feet, detailed feet, beautiful toes"
 }
 ###END`;
@@ -551,6 +645,7 @@ ${dancerList}
                     personality: aiDancer.personality || ''
                 };
 
+                const savedRecruitDesc = this.recruitInput;
                 this.funds -= 1000;
                 this.dancers.push(dancer);
                 this.recruitModalOpen = false;
@@ -562,8 +657,9 @@ ${dancerList}
 她的外貌：${dancer.appearance}。
 她的双足：${dancer.feet}。
 她的性格：${dancer.personality}。
-用户的招募要求是："${this.recruitInput || '无特殊要求'}"
-描述她第一次来到剧院的场景，重点描写她的外貌和赤足走在冰冷地板上的细节。`
+用户的招募要求是："${savedRecruitDesc || '无特殊要求'}"
+描述她第一次来到剧院的场景，重点描写她的外貌和赤足走在冰冷地板上的细节。
+注意：招募费已由系统扣除，STATE中 funds_change 设为 0。用 "${dancer.name}" 作为key。`
                 );
 
                 // 生成角色图片
@@ -621,14 +717,21 @@ ${dancerList}
             const client = CLIENT_TYPES.find(c => c.id === clientType);
             if (!client) return;
 
+            // 手动结算收入
             this.funds += client.reward;
 
+            // 低顺从度惩罚提示
+            let obedienceHint = '';
+            if (dancer.obedience < 30) {
+                obedienceHint = `\n${dancer.name}顺从度很低(${dancer.obedience})，被迫接客会非常抵抗，顺从度应下降5-15点。描写她的屈辱和抗拒。`;
+            }
+
             await this.requestAIResponse(
-                `安排演员 ${dancer.name} 接待一位${client.name}（${client.desc}）。
-描述${dancer.name}如何用身体和舞蹈来取悦这位${client.name}。
-要详细描写她的身体接触细节，尤其是脚部细节——她用纤细的脚趾怎样...
-最后描述这位${client.name}对${dancer.name}的评价和额外打赏。
-名气变化：+${client.fameGain}，收入：${client.reward}美元`
+                `安排演员 ${dancer.name} 接待一位${client.name}（${client.desc}）。` +
+                `描述${dancer.name}如何用身体和舞蹈来取悦这位${client.name}。` +
+                `详细描写身体接触和脚部细节。${obedienceHint}` +
+                `\n注意：收入${client.reward}美元已自动结算，STATE中 funds_change 设为 0。` +
+                `名气约+${client.fameGain}。用 "${dancer.name}" 作为key。`
             );
         },
 
@@ -640,10 +743,22 @@ ${dancerList}
             const action = INTERACT_TYPES.find(a => a.id === interactType);
             if (!action) return;
 
+            // 根据顺从度决定效果
+            let obedienceHint = '';
+            const isForced = (interactType === 'private' || interactType === 'punish' || interactType === 'foot_worship');
+            if (dancer.obedience < 30 && isForced) {
+                obedienceHint = `\n${dancer.name}顺从度很低(${dancer.obedience})，她会强烈抵抗。顺从度应下降5-15点。描写她的抗拒和恐惧。`;
+            } else if (dancer.obedience < 50 && interactType === 'private') {
+                obedienceHint = `\n${dancer.name}顺从度较低(${dancer.obedience})，有所抵抗。顺从度可能下降3-8点。`;
+            } else {
+                obedienceHint = `\n顺从度应提升约${action.obedienceGain}点。`;
+            }
+
             await this.requestAIResponse(
-                `你对演员 ${dancer.name} 进行了"${action.name}"。${action.desc}。
-详细描写这个过程，特别是她的身体反应和脚部细节。
-当前顺从度：${dancer.obedience}/100，这次互动应该使顺从度提升约 ${action.obedienceGain} 点。`
+                `你对演员 ${dancer.name} 进行了"${action.name}"。${action.desc}。` +
+                `详细描写这个过程，特别是她的身体反应和脚部细节。` +
+                `当前顺从度：${dancer.obedience}/100。${obedienceHint}` +
+                `\n在STATE中用 "${dancer.name}" 作为key。funds_change 设为 0。`
             );
         },
 
