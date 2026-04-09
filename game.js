@@ -300,14 +300,17 @@ ${dancerList}
                                 this.updateGameState(parsed.state);
                             }
                             this.chat_content = this.formatContent(parsed.dialogue);
+                            this.generatingContent = parsed.dialogue;
                         } else {
-                            this.generatingContent = content;
+                            // 流式输出时隐藏 ###STATE 块：只显示 STATE 之前的内容
+                            const stateIdx = content.search(/###\s*STATE/i);
+                            this.generatingContent = stateIdx >= 0 ? content.slice(0, stateIdx).trim() : content;
                         }
 
                         if (done && content) {
                             // 保存消息到 chat
                             const toSave = [];
-                            if (userMessage && !isStart) {
+                            if (userMessage && !isStart && !this._hideUserMessage) {
                                 toSave.push({ role: 'user', content: userMessage });
                             } else if (isStart) {
                                 toSave.push({ role: 'user', content: '【游戏开始】' });
@@ -322,7 +325,7 @@ ${dancerList}
                             } catch (e) { console.warn('保存消息失败:', e); }
 
                             // 更新本地 messages 显示
-                            if (userMessage && !isStart) {
+                            if (userMessage && !isStart && !this._hideUserMessage) {
                                 this.messages.push({
                                     id: Date.now() - 1,
                                     role: 'user',
@@ -347,6 +350,7 @@ ${dancerList}
                 this.disabled = false;
                 this.generating = false;
                 this.generatingContent = '';
+                this._hideUserMessage = false;
             }
         },
 
@@ -545,6 +549,8 @@ ${dancerList}
             this.funds += dailyIncome;
             this.autoSave();
 
+            // 静默推进：指令不在聊天中显示
+            this._hideUserMessage = true;
             await this.requestAIResponse(
                 `现在是第 ${this.day} 天。今日演出收入 ${dailyIncome} 美元已自动结算。` +
                 `描述今日的演出情况和剧院中发生的事情。` +
