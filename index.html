@@ -63,13 +63,11 @@
                 </div>
                 <div class="form-group">
                     <label>AI 模型</label>
-                    <select x-model="$store.game.model">
-                        <option value="nalang-turbo-0826">nalang-turbo-0826（快速）</option>
-                        <option value="nalang-medium-0826">nalang-medium-0826（平衡）</option>
-                        <option value="nalang-max-0826">nalang-max-0826（高质量）</option>
-                        <option value="nalang-xl-0826">nalang-xl-0826（推荐）</option>
-                        <option value="nalang-max-0826-16k">nalang-max-0826-16k</option>
-                        <option value="nalang-xl-0826-16k">nalang-xl-0826-16k</option>
+                    <select x-model="$store.game.model" :disabled="$store.game.modelsLoading">
+                        <option value="" x-show="$store.game.modelsLoading" disabled>加载模型列表中…</option>
+                        <template x-for="m in $store.game.modelList" :key="m.id">
+                            <option :value="m.id" x-text="m.name"></option>
+                        </template>
                     </select>
                 </div>
             </div>
