@@ -254,13 +254,8 @@ ${dancerList}
 
 【重要格式要求 - 必须严格遵守】
 每次回复的最后必须包含STATE块，格式如下：
-<<<<<<< HEAD
 ---
 （叙事内容 400~800字）
-=======
-
-（叙事内容 200~400字）
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
 
 ###STATE
 {"funds_change":0,"obedience_changes":{},"fame_changes":{},"new_day":false,"summary":"一句话摘要"}
@@ -276,19 +271,6 @@ ${dancerList}
 7. new_day 只能是 true 或 false
 8. 没有演员相关变化时用空对象 {}
 
-<<<<<<< HEAD
-=======
-**严格规则：**
-1. ###STATE 必须顶格写在单独一行
-2. JSON 必须写在一行内，不能换行，不能用代码块包裹
-3. JSON 中所有变化值必须是整数数字，不能是字符串
-4. **演员名必须与上方列表完全一致：${dancerNames.length > 0 ? dancerNames.join('、') : '暂无'}**
-5. funds_change 是美元变化量，没有变化则为0
-6. obedience_changes/fame_changes 的key必须用演员原名
-7. new_day 只能是 true 或 false
-8. 没有演员相关变化时用空对象 {}
-
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
 【游戏机制】
 - 顺从度<30的演员被强制接客或私下玩弄时，顺从度应该降低（-5到-15）
 - 顺从度<20的演员会强烈抵抗，顺从度大幅下降
@@ -305,11 +287,7 @@ ${dancerList}
 - 顺从度低的演员表现抗拒、恐惧
 - 顺从度高的演员表现顺从、讨好
 - 营造权力掌控氛围
-<<<<<<< HEAD
 - 每次叙事 400~800 字`;
-=======
-- 每次叙事 200~400 字`;
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
         },
 
         // ==================== AI 对话 ====================
@@ -319,10 +297,7 @@ ${dancerList}
             this.generatingContent = '';
             let content = '';
             let stateApplied = false;
-<<<<<<< HEAD
             const hideUser = !!opts.hideUser;
-=======
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
 
             try {
                 // 构建 messages
@@ -365,11 +340,7 @@ ${dancerList}
                         if (done && content) {
                             // 保存消息到 chat
                             const toSave = [];
-<<<<<<< HEAD
                             if (userMessage && !isStart && !hideUser) {
-=======
-                            if (userMessage && !isStart && !this._hideUserMessage) {
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
                                 toSave.push({ role: 'user', content: userMessage });
                             } else if (isStart) {
                                 toSave.push({ role: 'user', content: '【游戏开始】' });
@@ -384,11 +355,7 @@ ${dancerList}
                             } catch (e) { console.warn('保存消息失败:', e); }
 
                             // 更新本地 messages 显示
-<<<<<<< HEAD
                             if (userMessage && !isStart && !hideUser) {
-=======
-                            if (userMessage && !isStart && !this._hideUserMessage) {
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
                                 this.messages.push({
                                     id: Date.now() - 1,
                                     role: 'user',
@@ -413,7 +380,6 @@ ${dancerList}
                 this.disabled = false;
                 this.generating = false;
                 this.generatingContent = '';
-                this._hideUserMessage = false;
             }
         },
 
@@ -430,7 +396,6 @@ ${dancerList}
             const afterState = content.slice(stateStart + stateMatch[0].length);
             const endMatch = endRegex.exec(afterState);
             if (!endMatch) return { ready: false };
-<<<<<<< HEAD
 
             let jsonRaw = afterState.slice(0, endMatch.index).trim();
             // 去除可能的 markdown 代码块标记
@@ -448,30 +413,13 @@ ${dancerList}
             // 尝试直接解析
             try {
                 const state = JSON.parse(fixJson(jsonRaw));
-=======
-
-            let jsonRaw = afterState.slice(0, endMatch.index).trim();
-            // 去除可能的 markdown 代码块标记
-            jsonRaw = jsonRaw.replace(/^```(?:json)?\s*/gm, '').replace(/\s*```\s*$/gm, '').trim();
-
-            const dialogue = content.slice(0, stateStart).trim();
-
-            // 尝试直接解析
-            try {
-                const state = JSON.parse(jsonRaw);
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
                 return { ready: true, state, dialogue };
             } catch (e1) {
                 // 尝试提取 JSON 对象
                 const jsonMatch = jsonRaw.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     try {
-<<<<<<< HEAD
                         const fixed = fixJson(jsonMatch[0]);
-=======
-                        // 修复常见问题：尾逗号
-                        const fixed = jsonMatch[0].replace(/,\s*([}\]])/g, '$1');
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
                         const state = JSON.parse(fixed);
                         return { ready: true, state, dialogue };
                     } catch (e2) {
@@ -640,19 +588,11 @@ ${dancerList}
             this.autoSave();
 
             // 静默推进：指令不在聊天中显示
-<<<<<<< HEAD
             await this.requestAIResponse(
                 `现在是第 ${this.day} 天。今日演出收入 ${dailyIncome} 美元已自动结算。` +
                 `描述今日的演出情况和剧院中发生的事情。` +
                 `注意：天数和收入已由系统处理，STATE中 new_day 设为 false、funds_change 设为 0。`,
                 false, { hideUser: true }
-=======
-            this._hideUserMessage = true;
-            await this.requestAIResponse(
-                `现在是第 ${this.day} 天。今日演出收入 ${dailyIncome} 美元已自动结算。` +
-                `描述今日的演出情况和剧院中发生的事情。` +
-                `注意：天数和收入已由系统处理，STATE中 new_day 设为 false、funds_change 设为 0。`
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
             );
         },
 
@@ -763,12 +703,8 @@ ${dancerList}
 她的性格：${dancer.personality}。
 用户的招募要求是："${savedRecruitDesc || '无特殊要求'}"
 描述她第一次来到剧院的场景，重点描写她的外貌和赤足走在冰冷地板上的细节。
-<<<<<<< HEAD
 注意：招募费已由系统扣除，STATE中 funds_change 设为 0。用 "${dancer.name}" 作为key。`,
                     false, { hideUser: true }
-=======
-注意：招募费已由系统扣除，STATE中 funds_change 设为 0。用 "${dancer.name}" 作为key。`
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
                 );
 
             } catch (e) {
@@ -837,12 +773,8 @@ ${dancerList}
                 `描述${dancer.name}如何用身体和舞蹈来取悦这位${client.name}。` +
                 `详细描写身体接触和脚部细节。${obedienceHint}` +
                 `\n注意：收入${client.reward}美元已自动结算，STATE中 funds_change 设为 0。` +
-<<<<<<< HEAD
                 `名气约+${client.fameGain}。用 "${dancer.name}" 作为key。`,
                 false, { hideUser: true }
-=======
-                `名气约+${client.fameGain}。用 "${dancer.name}" 作为key。`
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
             );
         },
 
@@ -869,12 +801,8 @@ ${dancerList}
                 `你对演员 ${dancer.name} 进行了"${action.name}"。${action.desc}。` +
                 `详细描写这个过程，特别是她的身体反应和脚部细节。` +
                 `当前顺从度：${dancer.obedience}/100。${obedienceHint}` +
-<<<<<<< HEAD
                 `\n在STATE中用 "${dancer.name}" 作为key。funds_change 设为 0。`,
                 false, { hideUser: true }
-=======
-                `\n在STATE中用 "${dancer.name}" 作为key。funds_change 设为 0。`
->>>>>>> eb33e4a2bc7d26c48e9978fb314934478119f20b
             );
         },
 

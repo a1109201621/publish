@@ -74,8 +74,7 @@
 
             <!-- 按钮 -->
             <div class="menu-buttons">
-                <button class="primary-btn" @click="$store.game.startGame()"
-                    :disabled="!$store.game.playerName">
+                <button class="primary-btn" @click="$store.game.startGame()" :disabled="!$store.game.playerName">
                     🎭 开始经营
                 </button>
                 <button class="secondary-btn" @click="$store.game.openSaveManager()">
@@ -98,7 +97,8 @@
         <div class="game-topbar">
             <div class="topbar-left">
                 <span class="game-title">🩰 芭蕾剧院</span>
-                <span class="player-info" x-text="$store.game.playerName + ' · ' + ($store.game.theaterName || '无名剧院')"></span>
+                <span class="player-info"
+                    x-text="$store.game.playerName + ' · ' + ($store.game.theaterName || '无名剧院')"></span>
             </div>
 
             <div class="topbar-stats">
@@ -172,10 +172,8 @@
 
                 <!-- 输入区域 -->
                 <div class="input-area">
-                    <textarea x-model="$store.game.inputText"
-                        placeholder="描述你的行动…（Ctrl+Enter 发送）"
-                        :disabled="$store.game.disabled"
-                        @keydown.ctrl.enter="$store.game.sendMessage()"
+                    <textarea x-model="$store.game.inputText" placeholder="描述你的行动…（Ctrl+Enter 发送）"
+                        :disabled="$store.game.disabled" @keydown.ctrl.enter="$store.game.sendMessage()"
                         rows="2"></textarea>
                     <button class="send-btn" @click="$store.game.sendMessage()"
                         :disabled="$store.game.disabled || !$store.game.inputText.trim()">
@@ -191,8 +189,7 @@
                 <div class="section">
                     <div class="section-title">⚡ 行动</div>
                     <div class="action-grid">
-                        <button class="act-btn" @click="$store.game.actNextDay()"
-                            :disabled="$store.game.disabled">
+                        <button class="act-btn" @click="$store.game.actNextDay()" :disabled="$store.game.disabled">
                             📅 推进一天
                         </button>
                         <button class="act-btn success" @click="$store.game.actRecruit()"
@@ -209,10 +206,8 @@
 
                     <div class="dancer-list" x-show="$store.game.dancers.length > 0">
                         <template x-for="d in $store.game.dancers" :key="d.id">
-                            <div class="dancer-card"
-                                :class="{ selected: d.id === $store.game.selectedDancerId }"
-                                @click="$store.game.selectDancer(d.id)"
-                                @dblclick="$store.game.openDancerDetail(d.id)">
+                            <div class="dancer-card" :class="{ selected: d.id === $store.game.selectedDancerId }"
+                                @click="$store.game.selectDancer(d.id)" @dblclick="$store.game.openDancerDetail(d.id)">
                                 <div class="dancer-avatar">
                                     <img x-show="d.imageUrl" :src="d.imageUrl" :alt="d.name">
                                     <span x-show="!d.imageUrl">🩰</span>
@@ -236,25 +231,26 @@
 
                 <!-- 选中演员的操作 -->
                 <div class="section" x-show="$store.game.selectedDancerId && $store.game.dancers.length > 0">
-                    <div class="section-title">🎭 互动 · <span x-text="$store.game.getSelectedDancer()?.name || ''"></span></div>
+                    <div class="section-title">🎭 互动 · <span
+                            x-text="$store.game.getSelectedDancer()?.name || ''"></span></div>
 
                     <div class="action-grid">
-                        <template x-for="action in [{id:'train',name:'🩰 训练',t:'act-btn'},{id:'punish',name:'⛓️ 惩罚',t:'act-btn warn'},{id:'foot_worship',name:'🦶 足部侍奉',t:'act-btn'},{id:'private',name:'🔞 私下玩弄',t:'act-btn danger'}]" :key="action.id">
-                            <button :class="action.t"
-                                @click="$store.game.actInteract(action.id)"
-                                :disabled="$store.game.disabled"
-                                x-text="action.name">
+                        <template
+                            x-for="action in [{id:'train',name:'🩰 训练',t:'act-btn'},{id:'punish',name:'⛓️ 惩罚',t:'act-btn warn'},{id:'foot_worship',name:'🦶 足部侍奉',t:'act-btn'},{id:'private',name:'🔞 私下玩弄',t:'act-btn danger'}]"
+                            :key="action.id">
+                            <button :class="action.t" @click="$store.game.actInteract(action.id)"
+                                :disabled="$store.game.disabled" x-text="action.name">
                             </button>
                         </template>
                     </div>
 
                     <div class="section-title" style="margin-top: 14px;">👑 安排接待</div>
                     <div class="action-grid">
-                        <template x-for="client in [{id:'merchant',name:'💰 富商',t:'act-btn'},{id:'noble',name:'👑 贵族',t:'act-btn warn'},{id:'politician',name:'🏛️ 政要',t:'act-btn danger'},{id:'patron',name:'🎭 赞助人',t:'act-btn'}]" :key="client.id">
-                            <button :class="client.t"
-                                @click="$store.game.actEntertainClient(client.id)"
-                                :disabled="$store.game.disabled"
-                                x-text="client.name">
+                        <template
+                            x-for="client in [{id:'merchant',name:'💰 富商',t:'act-btn'},{id:'noble',name:'👑 贵族',t:'act-btn warn'},{id:'politician',name:'🏛️ 政要',t:'act-btn danger'},{id:'patron',name:'🎭 赞助人',t:'act-btn'}]"
+                            :key="client.id">
+                            <button :class="client.t" @click="$store.game.actEntertainClient(client.id)"
+                                :disabled="$store.game.disabled" x-text="client.name">
                             </button>
                         </template>
                     </div>
@@ -301,8 +297,7 @@
                             <div class="slot-meta" x-text="$store.game.saveSlotInfo[slot]"></div>
                         </div>
                         <div class="slot-actions">
-                            <button @click="$store.game.manualSave(slot)"
-                                :disabled="!$store.game.started">保存</button>
+                            <button @click="$store.game.manualSave(slot)" :disabled="!$store.game.started">保存</button>
                             <button @click="$store.game.manualLoad(slot)">读取</button>
                             <button class="danger" @click="$store.game.deleteSave(slot)">删除</button>
                         </div>
@@ -345,8 +340,7 @@
                 <span>📋 演员详情</span>
                 <button @click="$store.game.dancerDetailOpen = false">✕</button>
             </div>
-            <div class="modal-body" x-data="{ dancer: null }"
-                x-effect="dancer = $store.game.getSelectedDancer()">
+            <div class="modal-body" x-data="{ dancer: null }" x-effect="dancer = $store.game.getSelectedDancer()">
                 <template x-if="dancer">
                     <div class="dancer-detail">
                         <div class="dancer-detail-left">
@@ -368,8 +362,8 @@
                                 <span class="detail-label">顺从度</span>
                                 <div class="detail-bar">
                                     <div class="progress-bar">
-                                        <div class="progress-fill obedience"
-                                            :style="`width:${dancer.obedience}%`"></div>
+                                        <div class="progress-fill obedience" :style="`width:${dancer.obedience}%`">
+                                        </div>
                                     </div>
                                     <span class="bar-val" x-text="dancer.obedience"></span>
                                 </div>
@@ -378,19 +372,20 @@
                                 <span class="detail-label">名气</span>
                                 <div class="detail-bar">
                                     <div class="progress-bar">
-                                        <div class="progress-fill fame"
-                                            :style="`width:${dancer.fame}%`"></div>
+                                        <div class="progress-fill fame" :style="`width:${dancer.fame}%`"></div>
                                     </div>
                                     <span class="bar-val" x-text="dancer.fame"></span>
                                 </div>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">日收入</span>
-                                <span class="detail-value" x-text="(dancer.dailyIncome + Math.floor(dancer.fame * 5)) + ' 美元'"></span>
+                                <span class="detail-value"
+                                    x-text="(dancer.dailyIncome + Math.floor(dancer.fame * 5)) + ' 美元'"></span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">估价</span>
-                                <span class="detail-value" x-text="$store.game.getDancerSellPrice(dancer) + ' 美元'"></span>
+                                <span class="detail-value"
+                                    x-text="$store.game.getDancerSellPrice(dancer) + ' 美元'"></span>
                             </div>
 
                             <div class="detail-desc">
@@ -402,8 +397,8 @@
                             </div>
 
                             <div class="detail-actions">
-                                <button @click="$store.game.actGenerateSceneImage()"
-                                    :disabled="$store.game.disabled">🎨 生成图片</button>
+                                <button @click="$store.game.actGenerateSceneImage()" :disabled="$store.game.disabled">🎨
+                                    生成图片</button>
                                 <button @click="$store.game.actInteract('foot_worship')"
                                     :disabled="$store.game.disabled">🦶 足部侍奉</button>
                                 <button class="sell-btn" @click="$store.game.actSellDancer()"
@@ -459,8 +454,7 @@
                         <label>描述你想要的演员</label>
                         <textarea x-model="$store.game.recruitInput"
                             placeholder="例如：&#10;- 一个金发碧眼的俄罗斯少女，性格高傲但内心脆弱&#10;- 身材高挑，皮肤白皙，有一双修长美丽的脚&#10;- 18岁，黑色长发的东方美人，温顺听话&#10;- 红发妖艳的25岁女人，充满野性"
-                            rows="5"
-                            :disabled="$store.game.recruitGenerating"></textarea>
+                            rows="5" :disabled="$store.game.recruitGenerating"></textarea>
                         <div class="hint">
                             描述你理想中的演员形象，包括外貌、性格、年龄等。<br>
                             AI 会根据你的描述自动生成完整的角色信息和绘画提示词。
@@ -473,8 +467,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button @click="$store.game.closeRecruitModal()"
-                    :disabled="$store.game.recruitGenerating">取消</button>
+                <button @click="$store.game.closeRecruitModal()" :disabled="$store.game.recruitGenerating">取消</button>
                 <button class="primary" @click="$store.game.confirmRecruit()"
                     :disabled="$store.game.recruitGenerating || !$store.game.recruitInput.trim()">
                     <span x-show="!$store.game.recruitGenerating">🩰 确认招募</span>
